@@ -91,7 +91,6 @@ training <- dataset[!is.na(dataset$AmountSpent),]
     ## Children    -2.040e+02  1.586e+01 -12.864   <2e-16 ***
     ## Catalogs     4.261e+01  2.555e+00  16.674   <2e-16 ***
     ## ---
-    ## Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
     ## 
     ## Residual standard error: 515 on 988 degrees of freedom
     ## Multiple R-squared:  0.7147,	Adjusted R-squared:  0.7133 
