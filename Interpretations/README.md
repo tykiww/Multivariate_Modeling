@@ -6,5 +6,7 @@ In sum, how can I get the most important information off of certain ML models an
 Key code:
 
 MLR - Multiple Linear Regression
+
 RF - Random Forest
+
 LIME - Local Interpretable Model-agnostic Explanations
