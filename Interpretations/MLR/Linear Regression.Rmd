@@ -1,0 +1,257 @@
+---
+title: "Linear Regression"
+output: html_notebook
+author: Tyki Wada
+---
+
+Linear Regression is the principal statistical tool to solve "linear" (and oftentimes non-linear) problems. It's very easy and rather intuitive. It's all about drawing a line or multiple lines in a space. 
+
+$$
+y = \beta_{o} + \beta_{1}x_{1} + \beta_{2}x_{2} + ...+ \beta_{n}x_{n} +\epsilon
+$$
+
+The variable `y` is our dependent variable we are seeking to predict or find an outcome for.$\beta_{0}$ is what you would call the intercept in a line. If you did absolutely nothing, what effect would that have on the overall `y`? $\beta_{1}$ is the first factor $x_{1}$ is the data associated with that factor. $\epsilon$ is just a random error term that introduces itself because, life.
+
+Let's say we have data prepared. Each row is a unique customer and each column represents "attributes" of that customer. In this example, we are trying to understand how customer's attributes affect spend.
+
+Let's get right into it.
+
+Say you have a problem trying to find the most important predictors for consumer spending given certain attributes. The data looks like this:
+
+
+```{r}
+condition <- "tidyverse" %in% rownames(installed.packages())                         # Setting a condition to see if tidyverse is required
+if(condition) {                                                                        # If `condition` is set to TRUE, pass, else install
+  print("Tidyverse Already Installed") 
+  } else { 
+    install.packages("tidyverse")
+}                                                              
+
+library(tidyverse)                                                                               # Retrieving useful packages for analysis
+
+url <- "https://raw.githubusercontent.com/tykiww/projectpage/master/datasets/marketing_kaggle/retailmarket.csv" # path for where data lives
+dataset <- read_csv(url, skip_empty_rows = TRUE)                       # Read in the data from the url while skipping empty rows if exists
+( dataset <- dplyr::select(dataset, -OwnHome,-Married, -History) )                           # Removing select columns just for simplicity
+```
+
+Above is a simple cleaning procedure prepared for you. This can be easy or difficult depending on the problem. Hopefully you don't need to be spend too much time.
+
+If you were curious,`::` is a method to directly ask a library to borrow a function without having to call `library(dplyr)` and retrieving all its contents. Sometimes function names overlap (tends to happen with very simple functions like `select()`) and it's just handy to be specific about which one you are using.
+
+### Fitting a Linear Model
+
+It's easy. Just do this. `lm()` literally stands for linear model and is used for every type of linear analysis (Analysis of Variance, Analysis of Covariance...).
+What this function has done now, is automated the regression process of Age, Gender, etc. on Amount Spent.
+
+```{r}
+lm_obj <- lm(AmountSpent ~ Age + Gender + Location + Salary + Children + Catalogs, data = dataset)
+# Easier Method 
+lm_obj <- lm(AmountSpent ~ ., data = dataset) # . denotes ALL variables in dataset.
+```
+
+However, before we look into the linear model object itself, let's make sure we CAN perform a multi-regression.
+
+### Regression Diagnostics
+
+There are a few assumptions that need to be met in order to actually be able to use a regression properly. This is important because the model will become useless for interpretation. The whole point of using a regression is to see the *magnitude* of certain effects on a dependent variable (in our case, `AmountSpent`). The ONLY time you can use a regression when assumptions are broken is for the sake of prediction.IF you are only concerned about prediction, then who cares if the factors don't really tell you anything? (works IF and ONLY IF prediction accuracy is considerably high). 
+
+Well, we're not only concerned about prediction, but higher things than that.
+
+1) The data is additive (linear)
+
+Is the linear relationships between all the variables linear with the predictor? There are several ways to check this, but here is a simple solution.
+
+```{r}
+plot(AmountSpent~Salary + Children + Catalogs,data=dataset)
+```
+
+They kinda look linear? All of them seem to have a common characteristic. They balloon out or balloon in as they increase. IF the data balloons out, this means that the relationship of the data is more and more uncertain as you increase the independent variable. If they balloon in, uncertainty (variation) is higher towards the beginning. THIS IS NOT A LINEAR CHARACTERISITIC and there is a way to fix this. However, we won't really go into that *yet*. Either ask me and we can talk deeper stuff or check this [example out](https://tykiww.github.io/2017-02-05-SLR-Plotly/). We'll assume it is linear enough for now.
+
+2) Data and errors are independent; errors should be normal
+
+Independent errors also mean independent data. This means that each error doesn't correspond with the overall outcome.
+
+```{r}
+# Check for several nature
+y = na.omit(dataset$AmountSpent)
+x = lm_obj$residuals
+plot(x,y)
+```
+
+Do you see a relationship between the 'residuals' (the error terms) and the amount spent? Yes, we do. In a perfect world, it should look like this:
+
+![](https://www.statisticssolutions.com/wp-content/uploads/2010/01/mlr02.jpg)
+
+Where there is no relationship at all, errors are scattered and centered at zero. In our plot, there seems to be a relationship between increased spending and uncertainty. Notice here that it is OKAY that there is uncertainty. We just want to better understand this behavior, so we fit the model. You may or may not have noticed, but the problems with the first assumption are mirrored in the second assumption. This means we can kill two birds with one stone later if we want to make some amendments. Yay.
+
+3) Errors are normally distributed (homoscedasticity)
+
+Normality of the errors can be done in two ways. The easy way or the complex way. To be honest, eyeballing it is enough. You could use some semi-formal analysis like the Kolomorov-Smirnov test to see whether or not a set of values fit a particular distribution, but do you really for something like this? Probably nah.
+
+```{r}
+hist(lm_obj$residuals)
+```
+
+Looks roughly normal and that is all we really need (should also be centered at zero, will be most of the time). Understand that the characteristic of the residuals reflect the plot before measuring independent errors. It's just a collapsed 1-D representation of just the errors.
+
+4) No collinearity (No form of correlation between numeric/ordinal independent variables)
+
+Honestly, this is a very very tough subject and can get extremely hairy. In simple layman terms, having correlation between variables means that the model gets confused over which covariate to derive the effect from. This is one area where more data does not simply mean more information. Why not just use one if it explains it well enough? THIS IS WHY OUR MODELS CANNOT INCLUDE ANYTHING AND EVERYTHING. Be meticulous about what you include into your statistical models. Try to be intuitive about the numbers you are using.
+
+```{r}
+plot(~Salary + Children + Catalogs,data=dataset) # Use only numerical values 
+```
+
+There seems to be no serious collinearity. This is just a multi-way x-y plot with Salary, Children, and number of catalogs held by customer. A more quantitative approach would be to use the *Variance Inflation Factors* (What are the factors that over-inflate the variance? Variance meaning important information contributing to the overall model). It is a glorified correlation metric that doesn't really need to be understood for the overall outcome.
+
+```{r}
+library(car) # companion to applied regression install.packages("car") if necessary
+vif(lm_obj)
+```
+
+If the GVIF gets larger than 10, you should be seriously concerned. 
+
+<hr>
+
+Now that we are done assessing the assumptions, let's summarize what we have learned.
+
+1) Our data shows a high tendency of uncertainty once customers spend more. This tends to throw off our error independence assumptions and linearity assumptions.We are able to fix this by applying transformations. 
+2) The errors are normal, which means that there is no WILD deviance patterns from a line.
+3) Variables in our models should not correlate too much with each other unless it is with the predictor.
+
+What we have done is just picked up a lego dinosaur and looked at it from all surface angles to make sure it at least looks like a dinosaur. Now let's see what this lego dino can do.
+
+### Interpreting the Model
+
+We'll now dig deeper into the more important aspects of the model.
+
+```{r}
+summary(lm_obj)
+```
+
+Let's pick apart our output summary from the linear model. For now, the following aspects are the most important:
+
+1) Estimate ($\beta$)
+
+Each of these estimates are the $\beta$ values mentioned at the beginning. There are two methods to interpret this estimate depending on its categorical nature.
+
+:: Numeric    :: 
+- A one unit increase in salary would increase the amount spent by 0.0215 dollars holding all else constant.
+- A one unit increase in number of children will decrease the amount spent by -1.99 dollars cetris paribus.
+
+:: Categorical:: 
+- Males on average spend 3.83 dollars less than females including all factors, but holding them constant.
+- The difference in average spending between near and far customers (far - near) is $51.32 dollars if all values are not moving.
+
+Notice how powerful this is? Now we can think up of suggestions based on which demographic to target.
+
+Also notice how some variables are missing. `GenderFemale`, `AgeMiddle`, `LocationNear`. That is because R is trying to establish a base factor level for each grouping. Each estimate is a comparison against the base estimate. It is difficult to establish numerical predictors (estimates) out of non-numeric values. IF for any reason your factors were ordinal, you can specify those in your model. If you want to, come talk to me.
+
+2) Pr(>|t|) (p-values)
+
+This is key. I am going to assume that you have an elementary knowledge of statistics. The p-value in this model is an assessment of the estimate. It is asking the hypothesis of whether or not the coefficient estiamte is statistically different from being 0 (no effect). If the p-value is below 0.05, you are confident in the method that over 95% of the time, your estimate ($\beta$ value) is actually the value that it claims and has an effect. If you are confused about why the p-value has to be below zero and whatnot, come talk to me.
+
+This means that if your null hypotheses are not rejected, than those variables are useless. What do you do then? Probably toss them out. They don't provide an overall reliable estimate to the overarching model.
+
+HOWEVER, there are times when you don't want to toss them out. This is when you are purely looking to interpret categorical $\betas$. IT is key to understand that Old Aged individuals generally happen to spend 4 dollars more than middle aged individuals just from a general summary statistics standpoint. 
+
+3) Multiple/Adjusted R-squared (yeah)
+
+The R^2 value is a measure of predictability ranging from 0-1. You can kind of look at it like a probability. You can look up the formula [here](https://www.myaccountingcourse.com/financial-ratios/r-squared). It is less of a measurement of how well the model can interpret, but how powerful the prediction accuracy is. The Adjusted R-squared issues a penalty for too many predictors being added. 
+
+If we look at it as a probability, an R^2 of .5 would mean we would be correct 50% of the time. So, the higher the value, the better. There's no real optimum. Some people will swear that 80% is the threshold for a 'good' model. However, it always depends. Don't get fooled by absolutes.
+
+
+
+### Predicting with the model
+
+Predicting is easy. Just make sure you omit the variables that are non-significant.
+
+Let's just take a random customer from our dataset and pretend we don't know their salary.
+```{r}
+set.seed(1010)                      # Setting a time seed so it is reproducible
+rng <- sample(nrow(dataset),1)      # rng stands for random number generation
+test_data <- dataset[rng,-7]        # Retrieving data object, removing AmountSpent
+```
+
+Re-program the new set to include variables of interest
+
+```{r}
+lm_obj2 <- lm(AmountSpent ~ Location + Salary + Children + Catalogs, data = dataset)
+# Easier Method 
+lm_obj2 <- lm(AmountSpent ~ . - Age - Gender, data = dataset)
+```
+
+And predict.
+
+```{r}
+predict(lm_obj2,newdata = test_data)
+```
+
+Now you'll recognize this estimate isn't perfect. This is where you see the effect of some of the assumptions that are broken. The model needs to be tweaked with some transformations. That is for another time.
+
+
+<hr>
+
+So now we have gone through the ins and outs of a multiple regression. Here are some sample questions to get you thinking. They can be pretty tough, so don't bash your head over not being able to answer them.
+
+Easy:
+
+1) What are the key drivers of sales revenue in order?
+
+Key drivers are the highest positive impacts $\beta$ in order.
+
+2) What is the optimal distance an customer should be from the store?
+
+Far. Higher impact on revenue
+
+3) Can you predict for me what the 'typical' customer would spend? (Hint: Typical means median for numeric values and mode for categorical representation)
+
+Take the median individual based on data. Use the 'predict' function.
+
+Medium:
+
+4) Can you demonstrate the potential marginal impact of those key drivers on gross product sales (i.e. how much can each driver potentially impact sales)?
+
+Multiply $\beta$ coefficients with the median of the data. This will yield the magnitude to which the $\beta$ coefficients impact the overall prediction `y` value.
+
+3) We didn't mention any outliers. Should you include them or not?
+
+If we are predicting, take them out. If we are interpreting, keep them in!
+
+Conceptual:
+
+5) If elasticity is seen as a percent change of x causing a percent change in y, could you express the coefficients in terms of elasticity?
+
+Take the log of an x and a log of a y. Taking the log will show a percent change.
+
+6) How elastic is salary to total spend? Is there a potential to target a higher earning demographic for more sales?
+
+I am not going to calculate it, but take the log of salary and amount spent. If it is inelastic, there is a potential to increase sales.
+
+8) We purposefully ignored transformations in this lesson. If I explained to you that transformations are a way to make the relationship of the data conform to its assumptions, what would you do to the y variable to help it conform to its assumptions better? (Would you add a number to it, multiply it by something, take a log, square it, invert it?)
+
+Probably adding 1 and taking the log of y. `log(AmountSpent + 1)`. We need to mitigate the expanding variance with the x variables. The log preserves the local maximum, but since the value cannot be zero, I would add 1 for simplicity. 
+
+<hr>
+
+Now give everything you did a try with this dataset and think about the problems yourself. The following data gives a small subset of houses and their corresponding prices. The variables are quite intuitive but keep in mind the `y` variable is Price.
+
+```{r}
+library(tidyverse)
+url <- "https://raw.githubusercontent.com/tykiww/projectpage/master/datasets/pythondata/house_data.csv" # path for where data lives
+house_data <- read_csv(url)                       # Read in the data from the url while skipping empty rows if exists
+house_data[house_data == "."] <- NA
+house_data[,1:5] <- apply(house_data[,1:5],2,as.numeric) # ignore the errors
+house_data <- na.omit(house_data)
+glimpse(house_data)
+```
+
+
+```{r}
+# Good luck.
+```
+
+
+
+
