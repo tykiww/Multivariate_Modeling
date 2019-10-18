@@ -8,5 +8,3 @@ Key code:
 MLR - Multiple Linear Regression
 
 RF - Random Forest
-
-LIME - Local Interpretable Model-agnostic Explanations
